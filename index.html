@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Generator — Admin Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f0ede7;
+    color: #1a1814;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+    color: #1a1814;
+  }
+
+  .subtitle { color: #8a8680; font-size: 0.875rem; margin-bottom: 2rem; }
+
+  .warning {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    color: #92400e;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-bottom: 2rem;
+  }
+
+  .config-box {
+    background: white;
+    border: 1px solid #ddd9d0;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .config-box h3 { font-size: 0.875rem; color: #8a8680; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+
+  label { display: block; font-size: 0.85rem; color: #4a4640; margin-bottom: 0.25rem; font-weight: 500; }
+
+  input[type=text] {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #ddd9d0;
+    border-radius: 6px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.9rem;
+    color: #1a1814;
+    background: #f7f5f0;
+    outline: none;
+    margin-bottom: 1rem;
+    transition: border-color 0.15s;
+  }
+
+  input[type=text]:focus { border-color: #1d4ed8; background: white; }
+
+  .generate-btn {
+    background: #1d4ed8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .generate-btn:hover { opacity: 0.9; }
+
+  .qr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .qr-card {
+    background: white;
+    border: 1px solid #ddd9d0;
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    break-inside: avoid;
+  }
+
+  .qr-card h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #1a1814;
+  }
+
+  .qr-container { margin: 0 auto 0.75rem; display: inline-block; }
+
+  .qr-url {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: #8a8680;
+    word-break: break-all;
+    background: #f0ede7;
+    border-radius: 4px;
+    padding: 0.3rem 0.4rem;
+    margin-bottom: 0.75rem;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .download-btn {
+    background: #f0ede7;
+    border: 1px solid #ddd9d0;
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.78rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    color: #4a4640;
+    transition: all 0.15s;
+  }
+
+  .download-btn:hover { background: #ddd9d0; }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .config-box, .warning, .generate-btn, .subtitle, h1 { display: none; }
+    .qr-grid { gap: 0; }
+    .qr-card { border: 1px solid #ccc; border-radius: 0; page-break-inside: avoid; }
+    .download-btn { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🔑 QR Code Generator</h1>
+<p class="subtitle">Admin tool — generate signed QR codes for each table. Do not share this page.</p>
+
+<div class="warning">
+  ⚠️ <strong>Admin use only.</strong> This tool generates QR codes with signed table tokens.
+  These QR codes should be printed and placed on tables. The URL contains a secret token that
+  validates the table — only share QR images, never the generator URL.
+</div>
+
+<div class="config-box">
+  <h3>Configuration</h3>
+  <label>Customer page base URL</label>
+  <input type="text" id="base-url" value="http://localhost/restaurant-system/customer/index.html"
+    placeholder="https://your-domain.com/customer/index.html">
+  <button class="generate-btn" onclick="generateAll()">Generate QR Codes</button>
+  <button class="generate-btn" style="background:#4a4640;margin-left:0.5rem" onclick="window.print()">🖨️ Print All</button>
+</div>
+
+<div class="qr-grid" id="qr-grid"></div>
+
+<script src="../shared/config.js"></script>
+<script>
+function generateAll() {
+  const baseUrl = document.getElementById("base-url").value.trim();
+  const grid = document.getElementById("qr-grid");
+  grid.innerHTML = "";
+
+  Object.entries(RESTAURANT_CONFIG.validTables).forEach(([tableId, table]) => {
+    const url = `${baseUrl}?t=${encodeURIComponent(tableId)}&s=${encodeURIComponent(table.secret)}`;
+
+    const card = document.createElement("div");
+    card.className = "qr-card";
+
+    const qrContainer = document.createElement("div");
+    qrContainer.className = "qr-container";
+    qrContainer.id = `qr-${tableId}`;
+
+    card.innerHTML = `<h4>${table.label}</h4>`;
+    card.appendChild(qrContainer);
+    card.innerHTML += `
+      <div class="qr-url">${url}</div>
+      <button class="download-btn" onclick="downloadQR('${tableId}','${table.label}')">⬇ Download PNG</button>
+    `;
+    grid.appendChild(card);
+
+    new QRCode(qrContainer, {
+      text: url,
+      width: 160,
+      height: 160,
+      colorDark: "#1a1814",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  });
+}
+
+function downloadQR(tableId, label) {
+  setTimeout(() => {
+    const canvas = document.querySelector(`#qr-${tableId} canvas`);
+    if (!canvas) { alert("QR not ready yet."); return; }
+
+    // Create a nice download canvas with label
+    const out = document.createElement("canvas");
+    out.width  = 220;
+    out.height = 260;
+    const ctx  = out.getContext("2d");
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 220, 260);
+
+    ctx.drawImage(canvas, 30, 20, 160, 160);
+
+    ctx.fillStyle = "#1a1814";
+    ctx.font      = "bold 14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(label, 110, 205);
+
+    ctx.fillStyle  = "#8a8680";
+    ctx.font       = "11px sans-serif";
+    ctx.fillText(RESTAURANT_CONFIG.name, 110, 225);
+
+    ctx.fillStyle  = "#c9a84c";
+    ctx.font       = "10px sans-serif";
+    ctx.fillText("Scan to order", 110, 245);
+
+    const a = document.createElement("a");
+    a.download = `qr-${tableId}-${label.replace(/\s+/g,"-")}.png`;
+    a.href     = out.toDataURL("image/png");
+    a.click();
+  }, 300);
+}
+
+// Auto-generate on load
+window.addEventListener("load", generateAll);
+</script>
+</body>
+</html>
